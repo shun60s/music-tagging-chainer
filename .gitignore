@@ -1,0 +1,12 @@
+/__pycache__/
+/genres/
+/reference/
+/result/
+/list/
+*.bat
+*.pyc
+*.md~
+*.py~
+*.*~
+*.pdf
+*.h5
