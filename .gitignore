@@ -2,6 +2,7 @@
 /genres/
 /reference/
 /result/
+/data/
 /list/
 *.bat
 *.pyc
@@ -10,3 +11,4 @@
 *.*~
 *.pdf
 *.h5
+*.wav

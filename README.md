@@ -6,7 +6,7 @@
 ここでは、その派生でジャンル数を50から10へ変更した [Music Genre Classification with Deep Learning](https://github.com/jsalbert/Music-Genre-Classification-with-Deep-Learning)の  
 CRNNモデルをChainer用にリメイクする。 
 
-[github repository](https://github.com/music-tagging-chainer)  
+[github repository](https://github.com/shun60s/music-tagging-chainer)  
 
 ## 互換性の問題  
 
@@ -44,6 +44,8 @@ theano.config.optimizer='None'
 
 - h5_load.py  githubで公開されているkeras用の重みファイルを読み込むためのもの。
 - music-tagger-test.py   引数に　--en　を追加するとkeras用の重みファイルを読み込む。
+- /data  Chainer用の重みモデルファイルなど。
+
 
 
 
