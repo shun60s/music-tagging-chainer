@@ -14,13 +14,7 @@ import numpy as np
 # numpy (1.14.0)
 # h5py (2.7.1)
 
-def irekae2(w1):
-    # coefficient position change (a,a)->(a',a')
-    w2=np.zeros( w1.shape, dtype=np.float32)
-    for i in range(w1.shape[0]):
-        for j in range(w1.shape[1]):
-            w2[i,j]=w1[(w1.shape[0]-1)-i, (w1.shape[1]-1)-j]
-    return w2
+
 
 def irekae4(w1):  
     # coefficient position changeconv (*,*,a,a)->(*.*,a',a')
@@ -38,6 +32,11 @@ class Class_net_from_h5_CNN(object):
         """
         Download music-auto_tagging-keras's CNN weights file of
         <https://github.com/keunwoochoi/music-auto_tagging-keras/tree/master/data/music_tagger_cnn_weights_theano.h5>
+        and put it in the 'data/' directory.
+        
+        Or,
+        Download music-auto_tagging-keras's CNN weights file of
+        <https://github.com/keunwoochoi/music-auto_tagging-keras/tree/90b294091adaada477b9003201dd20a9fe15a3c1/data/cnn_weights_theano.h5>
         and put it in the 'data/' directory.
         
         Contents:
@@ -167,11 +166,16 @@ class Class_net_from_h5_CNN(object):
     @property
     def fc1_W(self):
         # output tag 50
+        self.tags=50
         return self.model_weights['output/output_W'].value.T
     @property
     def fc1_b(self):
         # output tag 50
         return self.model_weights['output/output_b'].value.reshape(self.model_weights['output/output_b'].value.size)
+
+    
+    
+
 
 
 
@@ -367,14 +371,17 @@ class Class_net_from_h5_CRNN(object):
     def fc1_W(self):
         if self.IN_FILE == "data/music_tagger_crnn_weights_theano.h5":
             # output tag 50
+            self.tags=50
             return self.model_weights['output/output_W'].value.T
         else:
             # output tag 10
+            self.tags=10
             return self.model_weights['preds/preds_W'].value.T
     @property
     def fc1_b(self):
         if self.IN_FILE == "data/music_tagger_crnn_weights_theano.h5":
             # output tag 50
+            print ('change model to output is 50')
             return self.model_weights['output/output_b'].value.reshape(self.model_weights['output/output_b'].value.size)
         else:
             # output tag 10

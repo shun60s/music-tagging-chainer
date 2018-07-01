@@ -18,6 +18,7 @@ This is a change of
 <\python3\Lib\site-packages\chainer\links\normalization\batch_normalization.py>
 
 Change: add initial_avg_mean, initial_avg_var
+        add enforce_compute flag, to compute mean and var even if test mode, config.train is false
 Date: 2018.6
 """
 
@@ -78,7 +79,8 @@ class BatchNormalization2(link.Link):
     def __init__(self, size, decay=0.9, eps=2e-5, dtype=numpy.float32,
                  use_gamma=True, use_beta=True,
                  initial_gamma=None, initial_beta=None,
-                 initial_avg_mean=None, initial_avg_var=None):
+                 initial_avg_mean=None, initial_avg_var=None,
+                 enforce_compute=False):
         super(BatchNormalization2, self).__init__()
         if initial_avg_mean is not None:
             self.avg_mean = numpy.array(initial_avg_mean, dtype=dtype)
@@ -96,6 +98,7 @@ class BatchNormalization2(link.Link):
         self.register_persistent('N')
         self.decay = decay
         self.eps = eps
+        self.enforce_compute=enforce_compute
 
         with self.init_scope():
             if use_gamma:
@@ -155,7 +158,9 @@ class BatchNormalization2(link.Link):
                 beta = variable.Variable(self.xp.zeros(
                     self.avg_mean.shape, dtype=x.dtype))
 
-        if configuration.config.train:
+        
+        if configuration.config.train or self.enforce_compute: 
+            # if self.force_compute is true, then compute following...
             if finetune:
                 self.N += 1
                 decay = 1. - 1. / self.N

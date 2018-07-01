@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音楽のジャンル分け</title>
+<meta name="description" content="音楽のジャンル分け" />
+<link href="style.css" rel="stylesheet">
+</head>
+<body>
+<div class="container-lg px-3 my-5 markdown-body">
+<h1>音楽のジャンル分け</h1>
+
+<h2>概要  </h2>
+
+<p>音楽のジャンル分け（タグ付け）としてChoi氏の<a href="https://github.com/keunwoochoi/music-auto_tagging-keras">Music auto-tagging using keras</a>がある。<br />
+ここでは、その派生でジャンル数を50から10へ変更した <a href="https://github.com/jsalbert/Music-Genre-Classification-with-Deep-Learning">Music Genre Classification with Deep Learning</a>の<br />
+CRNNモデルをChainer用にリメイクする。 </p>
+
+<p><a href="https://github.com/shun60s/music-tagging-chainer">github repository</a><br /></p>
+
+<h2>互換性の問題  </h2>
+
+<h4>gru</h4>
+<p>オリジナルで使われているKeras/TheanoとChainerの間ではGRUの計算式が異なる。
+GRUは、Keras/Theanoに似せた計算式へ変更したものを準備した。（gru2.py) <br /></p>
+
+<h4>Batch Normalization(BN)</h4>
+<p>Batch Normalization(BN) については、移動平均の方法や定数が異なるところがあり、Chainer対応してもまったく同じ動作にならない。
+暫定として平均値と分散の初期値を設定できるものを準備した。(batch_normalization2.py)<br />
+Keras 1.0.6とそれ以降では、BNに互換性が無い（挙動が違う）ようである。CNNモデルの方は1.0.6でないと正しく動かない。CNNモデルは分散の値を２乗するように変更した。<br />
+美しくないが、Kerasの BNのmode=2に似た動作にするため、テスト時に動的にBNを計算するためのフラグも追加した。<br />
+ </p>
+<h3>conv</h3>
+<p>保存されたconv層の重み係数の配置が逆になっている。<br /></p>
+
+<h3>その他の留意点</h3>
+<p>windows上でのTheano optimization failedを回避するため、<br /></p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+import theano<br />
+theano.config.optimizer='None'<br />
+</code></pre></div></div>
+<p>をオリジナルに追加して動作確認した。<br /></p>
+
+
+
+<h2>音楽のジャンル分け  </h2>
+
+<p>Music Genre Classification with Deep LearningのCRNNモデル（ジャンル数10）と<br />
+Music auto-tagging using kerasの初期のCNNモデル（BNにmode2を使っているもの、ジャンル数50）仮称CNN0モデルと、<br />
+Music auto-tagging using kerasのCNNモデル（その後BNがmode=0に変更されている）の3種類の重みを使って2曲の予測実験をしてみた。<br />
+CNNモデルの結果は不安定？でどことなく怪しいところがあるような気がしている。<br /></p>
+
+<h3>CRNNモデルによる予測の結果の例</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+python3 music-tagger-test.py
+</code></pre></div></div>
+
+<p><img src="crnn-top10-result.png" alt="result_crnn" ><br /></p>
+
+
+<h3>CNNモデルによる予測の結果の例</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+python3 music-tagger-test.py -m CNN0
+</code></pre></div></div>
+
+<p><img src="cnn0-top10-result.png" alt="result_cnn0" ><br /></p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+python3 music-tagger-test.py -m CNN
+</code></pre></div></div>
+
+<p><img src="cnn-top10-result.png" alt="result_cnn" ><br /></p>
+
+
+
+<h2>内容</h2>
+
+<ul>
+<li>h5_load.py  githubで公開されているkeras用の重みファイルを読み込むためのもの。</li>
+<li>music-tagger-test.py   引数に　--en　を追加するとkeras用の重みファイルを読み込む。テストする曲を変更するときはaudio_pathsを書き換える。</li>
+<li>/data  Chainer用の重みモデルファイルなど。
+</li></ul>
+
+
+
+
+<h2>参照したもの  </h2>
+
+<ul>
+<li><a href="https://github.com/keunwoochoi/music-auto_tagging-keras/tree/90b294091adaada477b9003201dd20a9fe15a3c1">Music auto-tagging using kerasの初期のリポジトリ</a></li>
+<li><a href="https://github.com/jsalbert/Music-Genre-Classification-with-Deep-Learning">Music Genre Classification with Deep Learning</a></li>
+<li><a href="http://marsyasweb.appspot.com/download/data_sets/">GTZAN Genre Collection, Data Set</a>　10分類各100個、合計1000個の音源セット（長さは30秒）</li>
+<li><a href="https://www.bensound.com/">ROYALTY FREE MUSIC by BENSOUND</a>　ここからのサンプル音源が付属していた。
+</li></ul>
+
+
+<h2>ライセンス  </h2>
+docsディレクトリーの中にある以下のオリジナルのライセンス文を参照のこと。 <br />
+LICENSE-music-auto_tagging-keras.md<br />
+LICENSE-chainer.txt<br />
+
+
+</div>
+</body>
+</html>

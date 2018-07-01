@@ -103,6 +103,77 @@ class MusicTaggerCRNN(Chain):
         serializers.save_npz(fname, self)
 
 
+# CNN
+#  CNN model in keras 1.0.6, of which BatchNormalization is something special.
+#   initial_avg_var=(net.normx_v)**2
+#
+#  audio_convnet.py with cnn_weights_theano.h5: 
+#  BatchNormalization mode
+#    norm0 mode=0
+#    norm1-5 mode=2 : using per-batch statistics to normalize the data during both
+# 
+class MusicTaggerCNN(Chain):
+    def __init__(self, net=None, mode2=False):
+        super(MusicTaggerCNN, self).__init__()
+        with self.init_scope():
+            # input_shape = (1, 96, 1366) (1, mel-bands, time frames)
+            self.norm0 = BatchNormalization2(1366, initial_gamma=net.norm0_g if net else None ,initial_beta=net.norm0_b if net else None,
+                                                    initial_avg_mean=net.norm0_m if net else None, initial_avg_var=(net.norm0_v)**2 if net else None, eps=1e-5)
+                                                    
+            # conv1 1->32
+            self.conv1 = L.Convolution2D(1, 32, 3, pad=1, initialW=net.conv1_W if net else None ,initial_bias=net.conv1_b if net else None)
+            self.norm1 = BatchNormalization2(32, initial_gamma=net.norm1_g if net else None ,initial_beta=net.norm1_b if net else None,
+                                                  initial_avg_mean=net.norm1_m if net else None, initial_avg_var=(net.norm1_v)**2 if net else None,
+                                                  enforce_compute=mode2)
+            # conv2 32->128
+            self.conv2 = L.Convolution2D(32, 128, 3, pad=1, initialW=net.conv2_W if net else None ,initial_bias=net.conv2_b if net else None)
+            self.norm2 = BatchNormalization2(128, initial_gamma=net.norm2_g if net else None ,initial_beta=net.norm2_b if net else None,
+                                                   initial_avg_mean=net.norm2_m if net else None, initial_avg_var=(net.norm2_v)**2 if net else None,
+                                                   enforce_compute=mode2)
+            # conv3 128->128
+            self.conv3 = L.Convolution2D(128, 128, 3, pad=1, initialW=net.conv3_W if net else None ,initial_bias=net.conv3_b if net else None)
+            self.norm3 = BatchNormalization2(128, initial_gamma=net.norm3_g if net else None ,initial_beta=net.norm3_b if net else None,
+                                                   initial_avg_mean=net.norm3_m if net else None, initial_avg_var=(net.norm3_v)**2 if net else None,
+                                                   enforce_compute=mode2)
+            # conv4 128->192
+            self.conv4 = L.Convolution2D(128, 192, 3, pad=1, initialW=net.conv4_W if net else None ,initial_bias=net.conv4_b if net else None)
+            self.norm4 = BatchNormalization2(192, initial_gamma=net.norm4_g if net else None ,initial_beta=net.norm4_b if net else None,
+                                                   initial_avg_mean=net.norm4_m if net else None, initial_avg_var=(net.norm4_v)**2 if net else None,
+                                                   enforce_compute=mode2)
+            # conv5 128->256
+            self.conv5 = L.Convolution2D(192, 256 , 3, pad=1, initialW=net.conv5_W if net else None ,initial_bias=net.conv5_b if net else None)
+            self.norm5 = BatchNormalization2(256, initial_gamma=net.norm5_g if net else None ,initial_beta=net.norm5_b if net else None,
+                                                   initial_avg_mean=net.norm5_m if net else None, initial_avg_var=(net.norm5_v)**2 if net else None,
+                                                   enforce_compute=mode2)
+            # full connection 256->50
+            self.fc1 = L.Linear(256, 50, initialW=net.fc1_W if net else None ,initial_bias=net.fc1_b if net else None)
+            
+        self.mode2=mode2
+        
+    def __call__(self, X):
+        h0 = F.transpose( self.norm0( F.transpose(X,axes=(0, 3 , 1, 2)) ), axes=(0, 2 , 3, 1) )  # swap axis
+        h1 = F.max_pooling_2d( F.elu(self.norm1(self.conv1(h0))), (2,4) , cover_all=False)
+        h1 = F.dropout(h1, ratio=0.5)
+        h2 = F.max_pooling_2d( F.elu(self.norm2(self.conv2(h1))), (2,4) , cover_all=False)
+        h2 = F.dropout(h2, ratio=0.5)
+        h3 = F.max_pooling_2d( F.elu(self.norm3(self.conv3(h2))), (2,4) ,cover_all=False)
+        h3 = F.dropout(h3, ratio=0.5)
+        h4 = F.max_pooling_2d( F.elu(self.norm4(self.conv4(h3))), (3,5) ,cover_all=False)
+        h4 = F.dropout(h4, ratio=0.5)
+        h5 = F.max_pooling_2d( F.elu(self.norm5(self.conv5(h4))), (4,4) ) #,cover_all=False)
+        h5 = F.dropout(h5, ratio=0.5)
+        h5 = F.reshape( h5, (h5.shape[0], 256))
+        h6 = F.sigmoid(self.fc1(h5))
+        
+        return h6
+    
+    def load(self, fname='data/cnn.model'):
+        serializers.load_npz(fname, self)
+    
+    def save(self, fname="data/cnn.model"):
+        serializers.save_npz(fname, self)
+
+
 def compute_melgram(audio_path, SR=12000, N_FFT=512, N_MELS=96, HOP_LEN=256, DURA=29.12): # compute only center portion of the track
     """
     # mel-spectrogram parameters
@@ -153,11 +224,14 @@ def sort_result(tags, preds):
     return [(name, '%5.3f' % score) for name, score in sorted_result]
 
 
-def print_result(tags, pred_tags):
+def print_result(tags, pred_tags, percent=True ):
     print('* top-10 tags: genre prediction result percentage *')
     for song_idx, audio_path in enumerate(audio_paths):
-        total=pred_tags[song_idx, :].sum()
-        pred_tags[song_idx, :]=pred_tags[song_idx, :] / total * 100.
+        if percent:
+            total=pred_tags[song_idx, :].sum()
+            pred_tags[song_idx, :]=pred_tags[song_idx, :] / total * 100.
+        else:
+            pred_tags[song_idx, :]=pred_tags[song_idx, :]
         sorted_result = sort_result(tags, pred_tags[song_idx, :].tolist())
         print(audio_path)
         print(sorted_result[:5])
@@ -183,9 +257,8 @@ tag10 = ['blues', 'classical', 'country', 'disco', 'hiphop', 'jazz', 'metal', 'p
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Music Tagger for Chainer')
-    parser.add_argument('--modelSel', '-m', default='CRNN', help='model select CRNN Or CNN')
+    parser.add_argument('--modelSel', '-m', default='CRNN', help='model select CRNN Or CNN, CNN0')
     parser.add_argument('--en', action='store_false', help='add --en if use keras h5 weight data')
-    parser.add_argument('--resume', '-r', default='data/crnn.model',help='Resume from model file ')
     args = parser.parse_args()
 
     # Set audio_path to genre prediction.
@@ -195,35 +268,49 @@ if __name__ == '__main__':
     # load wav file and compute melgram
     melgrams2=np.array(load_wav_and_get_melgrams(audio_paths),dtype=np.float32)
     
-    if args.resume and args.en:
+    if args.en:
         if args.modelSel == 'CRNN':
             model_cnn = MusicTaggerCRNN()
+            model_cnn.load()
+            tags=10 # default
         else:
-            model_cnn = MusicTaggerCNN()
-        # Resume from model file
-        print ('loading model file', args.resume)
-        model_cnn.load(fname= args.resume)
+            if args.modelSel == 'CNN0':
+                print ('set to use mode 2')
+                model_cnn = MusicTaggerCNN(mode2=True)
+                model_cnn.load(fname='data/cnn0.model')
+            else: # 'CNN'
+                model_cnn = MusicTaggerCNN()
+                model_cnn.load()
+            tags=50
     else:
         if args.modelSel == 'CRNN':
             from h5_load import Class_net_from_h5_CRNN
             net0=  Class_net_from_h5_CRNN()
             model_cnn = MusicTaggerCRNN(net=net0)
             # save the weights as model file
-            model_cnn.save(fname="data/crnn.model")  
-        else:
+            model_cnn.save()
+        elif args.modelSel == 'CNN0' :
+            from h5_load import Class_net_from_h5_CNN
+            net0=  Class_net_from_h5_CNN(IN_FILE = 'data/cnn_weights_theano.h5')
+            model_cnn = MusicTaggerCNN(net=net0, mode2=True)
+            # save the weights as model file
+            model_cnn.save(fname='data/cnn0.model')
+        else: # 'CNN'
             from h5_load import Class_net_from_h5_CNN
             net0=  Class_net_from_h5_CNN()
             model_cnn = MusicTaggerCNN(net=net0)
             # save the weights as model file
-            model_cnn.save(fname="data/cnn.model")
+            model_cnn.save()
+        # set tag number
+        tags=net0.tags
     
     # enter chainer into test mode (no train mode)
     with chainer.using_config('train', False):
          pred_tags=model_cnn(melgrams2)
     
     # show genre prediction result
-    if args.modelSel == 'CRNN':
+    if tags == 10:
         print_result(tag10,pred_tags.data)
     else:
-        print_result(tag50,pred_tags.data)
+        print_result(tag50,pred_tags.data) #, percent=False )
 
